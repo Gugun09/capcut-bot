@@ -1,5 +1,10 @@
 {
   "name": "capcut-bot",
+  "author": {
+    "name": "Nanda Gunawan",
+    "email": "admin@countryssh.com",
+    "url": "https://countryssh.com"
+  },
   "version": "1.0.0",
   "description": "Bot untuk membuat akun CapCut otomatis menggunakan Puppeteer",
   "type": "module",
