@@ -5,6 +5,7 @@ import ora from 'ora';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import randomUserAgent from 'user-agents';
 import fs from 'fs';
+import readline from 'readline';
 
 // Gunakan stealth mode agar tidak terdeteksi sebagai bot
 puppeteer.use(StealthPlugin());
@@ -22,7 +23,7 @@ const getPassword = () => {
 };
 
 // Fungsi untuk membuat akun CapCut
-const createCapCutAccount = async () => {
+const createCapCutAccount = async (accountNumber, totalAccounts) => {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
 
@@ -37,6 +38,8 @@ const createCapCutAccount = async () => {
         hasTouch: false,
         isMobile: false
     });
+
+    console.log(chalk.magenta(`\n🚀 Memproses akun ${accountNumber} dari ${totalAccounts}`));
 
     // Ambil email dari Temp-Mail
     const emailSpinner = ora(chalk.blue('Mendapatkan email dari Temp-Mail...')).start();
@@ -53,7 +56,8 @@ const createCapCutAccount = async () => {
     } catch (error) {
         emailSpinner.fail(chalk.red('Gagal mendapatkan email!'));
         console.error(error);
-        return;
+        await browser.close();
+        return null;
     }
 
     // Dapatkan password dari file password.txt
@@ -61,29 +65,57 @@ const createCapCutAccount = async () => {
 
     // Mulai proses pendaftaran di CapCut
     const signupSpinner = ora(chalk.blue('Membuka halaman signup CapCut...')).start();
-    await page.goto('https://www.capcut.com/id-id/signup', { waitUntil: 'networkidle2' });
-    signupSpinner.succeed(chalk.green('Halaman signup dibuka!'));
+    try {
+        await page.goto('https://www.capcut.com/id-id/signup', { waitUntil: 'networkidle2', timeout: 60000 });
+        signupSpinner.succeed(chalk.green('Halaman signup dibuka!'));
+    } catch (error) {
+        signupSpinner.fail(chalk.red('Gagal membuka halaman signup!'));
+        console.error(error);
+        await browser.close();
+        return null;
+    }
 
     const inputSpinner = ora(chalk.blue('Mengisi email...')).start();
-    // Isi email
-    await page.type('input[name="signUsername"]', email, { delay: 100 });
+    try {
+        // Isi email
+        await page.type('input[name="signUsername"]', email, { delay: 100 });
 
-    // Klik tombol lanjut
-    await page.waitForSelector('.lv_sign_in_panel_wide-primary-button', { visible: true });
-    await page.click('.lv_sign_in_panel_wide-primary-button');
+        // Klik tombol lanjut
+        await page.waitForSelector('.lv_sign_in_panel_wide-primary-button', { visible: true, timeout: 10000 });
+        await page.click('.lv_sign_in_panel_wide-primary-button');
 
-    inputSpinner.succeed(chalk.green('Berhasil mengisi email!'));
+        inputSpinner.succeed(chalk.green('Berhasil mengisi email!'));
+    } catch (error) {
+        inputSpinner.fail(chalk.red('Gagal mengisi email!'));
+        console.error(error);
+        await browser.close();
+        return null;
+    }
 
     // Isi password
-    await page.waitForSelector('input[type="password"]', { visible: true });
-    await page.type('input[type="password"]', password, { delay: 100 });
+    try {
+        await page.waitForSelector('input[type="password"]', { visible: true, timeout: 10000 });
+        await page.type('input[type="password"]', password, { delay: 100 });
 
-    // Klik tombol daftar
-    await page.waitForSelector('.lv_sign_in_panel_wide-sign-in-button', { visible: true });
-    await page.click('.lv_sign_in_panel_wide-sign-in-button');
+        // Klik tombol daftar
+        await page.waitForSelector('.lv_sign_in_panel_wide-sign-in-button', { visible: true, timeout: 10000 });
+        await page.click('.lv_sign_in_panel_wide-sign-in-button');
+    } catch (error) {
+        console.error(chalk.red('Gagal dalam proses pendaftaran!'));
+        console.error(error);
+        await browser.close();
+        return null;
+    }
 
     // Tunggu hingga input tanggal lahir muncul
-    await page.waitForSelector('.gate_birthday-picker-input', { visible: true });
+    try {
+        await page.waitForSelector('.gate_birthday-picker-input', { visible: true, timeout: 10000 });
+    } catch (error) {
+        console.error(chalk.red('Gagal memuat halaman tanggal lahir!'));
+        console.error(error);
+        await browser.close();
+        return null;
+    }
 
     // Fungsi untuk mendapatkan angka acak dalam rentang tertentu
     const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -115,43 +147,50 @@ const createCapCutAccount = async () => {
     const randomDay = getRandomInt(1, months[randomMonthIndex].days);
 
     // Isi tahun lahir dengan nilai acak
-    await page.type('.gate_birthday-picker-input', String(randomYear), { delay: 100 });
+    try {
+        await page.type('.gate_birthday-picker-input', String(randomYear), { delay: 100 });
 
-    // Pilih dropdown bulan
-    await page.click('.gate_birthday-picker-selector:nth-of-type(1)');
-    await new Promise(resolve => setTimeout(resolve, 500));
-    await page.waitForSelector('.lv-select-popup li', { visible: true });
+        // Pilih dropdown bulan
+        await page.click('.gate_birthday-picker-selector:nth-of-type(1)');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await page.waitForSelector('.lv-select-popup li', { visible: true, timeout: 5000 });
 
-    // Pilih bulan acak dari dropdown
-    await page.evaluate((randomMonth) => {
-        let items = document.querySelectorAll('.lv-select-popup li');
-        items.forEach(item => {
-            if (item.innerText.trim() === randomMonth) {
-                item.click();
-            }
-        });
-    }, randomMonth);
+        // Pilih bulan acak dari dropdown
+        await page.evaluate((randomMonth) => {
+            let items = document.querySelectorAll('.lv-select-popup li');
+            items.forEach(item => {
+                if (item.innerText.trim() === randomMonth) {
+                    item.click();
+                }
+            });
+        }, randomMonth);
 
-    // Pilih dropdown hari
-    await page.click('.gate_birthday-picker-selector:nth-of-type(2)');
-    await new Promise(resolve => setTimeout(resolve, 500));
-    await page.waitForSelector('.lv-select-popup li', { visible: true });
+        // Pilih dropdown hari
+        await page.click('.gate_birthday-picker-selector:nth-of-type(2)');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await page.waitForSelector('.lv-select-popup li', { visible: true, timeout: 5000 });
 
-    // Pilih hari acak dari dropdown
-    await page.evaluate((randomDay) => {
-        let items = document.querySelectorAll('.lv-select-popup li');
-        items.forEach(item => {
-            if (item.innerText.trim() === String(randomDay)) {
-                item.click();
-            }
-        });
-    }, randomDay);
+        // Pilih hari acak dari dropdown
+        await page.evaluate((randomDay) => {
+            let items = document.querySelectorAll('.lv-select-popup li');
+            items.forEach(item => {
+                if (item.innerText.trim() === String(randomDay)) {
+                    item.click();
+                }
+            });
+        }, randomDay);
 
-    console.log(chalk.green(`📆 Tanggal lahir yang dipilih: ${randomDay} ${randomMonth} ${randomYear}`));
+        console.log(chalk.green(`📆 Tanggal lahir yang dipilih: ${randomDay} ${randomMonth} ${randomYear}`));
 
-    // Klik tombol "Berikutnya"
-    await page.waitForSelector('.lv_sign_in_panel_wide-birthday-next', { visible: true });
-    await page.click('.lv_sign_in_panel_wide-birthday-next');
+        // Klik tombol "Berikutnya"
+        await page.waitForSelector('.lv_sign_in_panel_wide-birthday-next', { visible: true, timeout: 5000 });
+        await page.click('.lv_sign_in_panel_wide-birthday-next');
+    } catch (error) {
+        console.error(chalk.red('Gagal mengisi tanggal lahir!'));
+        console.error(error);
+        await browser.close();
+        return null;
+    }
 
     // Ambil kode OTP
     const otpSpinner = ora(chalk.blue('Menunggu kode OTP dari email...')).start();
@@ -173,37 +212,98 @@ const createCapCutAccount = async () => {
                 otpSpinner.succeed(chalk.green(`📩 Kode OTP yang diterima: ${otpCode}`));
             } else {
                 otpSpinner.fail(chalk.red('Kode OTP tidak ditemukan dalam email.'));
-                return;
+                await browser.close();
+                return null;
             }
         } else {
             otpSpinner.fail(chalk.red('Tidak ada email masuk setelah 50 detik.'));
-            return;
+            await browser.close();
+            return null;
         }
     } catch (error) {
         otpSpinner.fail(chalk.red('Gagal mengambil kode OTP!'));
         console.error(error);
-        return;
+        await browser.close();
+        return null;
     }
 
     // Masukkan kode OTP
-    await page.type('input.lv-input', otpCode, { delay: 100 });
-
-    console.log(chalk.green('✅ Kode OTP dimasukkan dan verifikasi berhasil!'));
+    try {
+        await page.waitForSelector('input.lv-input', { visible: true, timeout: 10000 });
+        await page.type('input.lv-input', otpCode, { delay: 100 });
+        console.log(chalk.green('✅ Kode OTP dimasukkan dan verifikasi berhasil!'));
+    } catch (error) {
+        console.error(chalk.red('Gagal memasukkan kode OTP!'));
+        console.error(error);
+        await browser.close();
+        return null;
+    }
 
     // Simpan ke file accounts.txt
-    const accountData = `Email: ${email}\nPassword: ${password}\nTanggal Lahir: ${randomDay} ${randomMonth} ${randomYear}\n----------------------\n`;
+    const accountData = `Akun #${accountNumber}\nEmail: ${email}\nPassword: ${password}\nTanggal Lahir: ${randomDay} ${randomMonth} ${randomYear}\n----------------------\n`;
     fs.appendFileSync('accounts.txt', accountData, 'utf8');
 
     console.log(chalk.green(`💾 Akun berhasil disimpan ke accounts.txt!`));
 
-    // Tutup browser
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    // Screenshot hasil akhir (opsional)
-    // await page.screenshot({ path: 'after-verification.png' });
+    // Tunggu beberapa detik sebelum menutup
+    await new Promise(resolve => setTimeout(resolve, 3000));
     await browser.close();
+
+    return { email, password, birthDate: `${randomDay} ${randomMonth} ${randomYear}` };
 };
-// Jalankan fungsi utama
-(async () => {
-    await createCapCutAccount();
-})();
+
+// Fungsi untuk menanyakan jumlah akun yang ingin dibuat
+const askForAccountCount = () => {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    return new Promise(resolve => {
+        rl.question(chalk.blue('🛠️  Berapa banyak akun yang ingin dibuat? '), (answer) => {
+            rl.close();
+            const count = parseInt(answer);
+            resolve(isNaN(count) || count < 1 ? 1 : count);
+        });
+    });
+};
+
+// Fungsi utama
+const main = async () => {
+    console.log(chalk.yellow.bold('\n🎬 CAPCUT ACCOUNT CREATOR 🎬\n'));
+    
+    const totalAccounts = await askForAccountCount();
+    console.log(chalk.cyan(`\n🔧 Akan membuat ${totalAccounts} akun CapCut...\n`));
+
+    const successfulAccounts = [];
+    
+    for (let i = 1; i <= totalAccounts; i++) {
+        const account = await createCapCutAccount(i, totalAccounts);
+        if (account) {
+            successfulAccounts.push(account);
+        }
+        
+        // Jeda acak antara akun (3-10 detik)
+        if (i < totalAccounts) {
+            const delay = Math.floor(Math.random() * 7000) + 3000;
+            console.log(chalk.blue(`⏳ Menunggu ${delay/1000} detik sebelum membuat akun berikutnya...`));
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+
+    console.log(chalk.green.bold('\n✨ PROSES SELESAI! ✨'));
+    console.log(chalk.green(`Berhasil membuat ${successfulAccounts.length} dari ${totalAccounts} akun.\n`));
+    
+    if (successfulAccounts.length > 0) {
+        console.log(chalk.cyan('📝 Daftar akun yang berhasil dibuat:'));
+        successfulAccounts.forEach((acc, index) => {
+            console.log(chalk.cyan(`\nAkun #${index + 1}:`));
+            console.log(chalk.cyan(`Email: ${acc.email}`));
+            console.log(chalk.cyan(`Password: ${acc.password}`));
+            console.log(chalk.cyan(`Tanggal Lahir: ${acc.birthDate}`));
+        });
+    }
+};
+
+// Jalankan program
+main().catch(console.error);
